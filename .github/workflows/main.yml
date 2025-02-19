@@ -21,19 +21,9 @@ jobs:
     - name: Install Docker Desktop
       run: .\DockerDesktopInstaller.exe /quiet /norestart
 
-    - name: Download OpenVPN
-      run: Invoke-WebRequest https://github.com/OpenVPN/openvpn/releases/download/v2.5.3/openvpn-install-2.5.3-I601-Win64.exe -OutFile openvpn-installer.exe
-
-    - name: Install OpenVPN
-      run: .\openvpn-installer.exe /quiet /norestart
-
-    - name: Authenticate OpenVPN
+    - name: Install ZeroTier
       run: |
-        # Copy your .ovpn config to the expected location
-        Copy-Item -Path kangwifi.first.ovpn -Destination "C:\Program Files\OpenVPN\config\kangwifi.first.ovpn"
-
-    - name: Connect to VPN
-      run: Start-Process -FilePath "C:\Program Files\OpenVPN\bin\openvpn.exe" -ArgumentList "--config", "C:\Program Files\OpenVPN\config\kangwifi.first.ovpn" -NoNewWindow -Wait
+        wsl curl -s https://install.zerotier.com | sudo bash
 
     - name: Enable TS
       run: Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -name "fDenyTSConnections" -Value 0
@@ -44,5 +34,10 @@ jobs:
 
     - run: Set-LocalUser -Name "runneradmin" -Password (ConvertTo-SecureString -AsPlainText "P@ssw0rd!" -Force)
 
-    - name: OpenVPN Tunnel Established
-      run: echo "OpenVPN Tunnel has been successfully established."
+    - name: Join ZeroTier Network
+      run: |
+        wsl zerotier-cli join 856127940cb15a86
+
+    - name: Check ZeroTier Networks
+      run: |
+        wsl zerotier-cli listnetworks
