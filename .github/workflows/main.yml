@@ -21,9 +21,11 @@ jobs:
     - name: Install Docker Desktop
       run: .\DockerDesktopInstaller.exe /quiet /norestart
 
+    - name: Download ZeroTier Installer
+      run: Invoke-WebRequest -Uri "https://download.zerotier.com/dist/ZeroTier%20One.msi" -OutFile "ZeroTierOne.msi"
+
     - name: Install ZeroTier
-      run: |
-        wsl curl -s https://install.zerotier.com | sudo bash
+      run: msiexec /i ZeroTierOne.msi /quiet /norestart
 
     - name: Enable TS
       run: Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -name "fDenyTSConnections" -Value 0
@@ -35,9 +37,7 @@ jobs:
     - run: Set-LocalUser -Name "runneradmin" -Password (ConvertTo-SecureString -AsPlainText "P@ssw0rd!" -Force)
 
     - name: Join ZeroTier Network
-      run: |
-        wsl zerotier-cli join 856127940cb15a86
+      run: "C:\Program Files (x86)\ZeroTier\One\zerotier-cli.exe" join 856127940cb15a86
 
     - name: Check ZeroTier Networks
-      run: |
-        wsl zerotier-cli listnetworks
+      run: "C:\Program Files (x86)\ZeroTier\One\zerotier-cli.exe" listnetworks
