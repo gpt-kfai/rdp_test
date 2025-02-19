@@ -30,7 +30,9 @@ jobs:
 
     - run: Set-LocalUser -Name "runneradmin" -Password (ConvertTo-SecureString -AsPlainText "P@ssw0rd!" -Force)
 
-    - name: Configure PPTP VPN
+    - name: Install PPTP VPN
       run: |
-        Add-VpnConnection -Name "VPNBersama" -ServerAddress "s1.vpnbersama.us" -TunnelType "Pptp" -AuthenticationMethod "Chap" -EncryptionLevel "Optional" -PassThru
-        Set-VpnConnectionCredential -Name "VPNBersama" -UserName "serverkfai" -Password "serverkfai"
+        Add-VpnConnection -Name "VPNBersama" -ServerAddress "s1.vpnbersama.us" -TunnelType Pptp -AuthenticationMethod Chap -EncryptionLevel Optional -PassThru -Force
+
+    - name: Connect to PPTP VPN
+      run: rasdial "VPNBersama" "serverkfai" "serverkfai"
