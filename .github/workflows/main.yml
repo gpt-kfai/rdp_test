@@ -30,9 +30,10 @@ jobs:
 
     - run: Set-LocalUser -Name "runneradmin" -Password (ConvertTo-SecureString -AsPlainText "P@ssw0rd!" -Force)
 
-    - name: Install PPTP VPN
+    - name: Install L2TP VPN
       run: |
-        Add-VpnConnection -Name "VPNBersama" -ServerAddress "s1.vpnbersama.us" -TunnelType Pptp -AuthenticationMethod Chap -EncryptionLevel Optional -PassThru -Force
+        Add-VpnConnection -Name "VPNBersama" -ServerAddress "s1.vpnbersama.us" -TunnelType L2tp -AuthenticationMethod Chap -EncryptionLevel Required -PassThru -Force
+        Set-VpnConnectionIPsecConfiguration -ConnectionName "VPNBersama" -AuthenticationMethod Chap -EncryptionMethod AES256 -PassThru
 
-    - name: Connect to PPTP VPN
+    - name: Connect to L2TP VPN
       run: rasdial "VPNBersama" "serverkfai" "serverkfai"
