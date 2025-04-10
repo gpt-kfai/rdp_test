@@ -15,8 +15,7 @@ jobs:
         wget -q -O ngrok.zip https://bin.equinox.io/c/4VmDzA7iaHb/ngrok-stable-linux-amd64.zip
         unzip ngrok.zip
         chmod +x ngrok
-        ./ngrok authtoken ${{ secrets.NGROK_AUTH_TOKEN }}
-        nohup ./ngrok tcp 6080 > ngrok.log 2>&1 &
+        mv ngrok /usr/local/bin/
 
     - name: Pull Docker Android Image
       run: docker pull butomo1989/docker-android-x86-9.0
@@ -24,18 +23,35 @@ jobs:
     - name: Run Android Docker Container
       run: |
         docker run --privileged -d \
-          -e DEVICE="Samsung Galaxy S10" \
+          -e DEVICE="Realme GT Master Edition" \
           -e WEB_VNC=true \
           -p 6080:6080 \
           --name kangwifi-android \
           butomo1989/docker-android-x86-9.0
 
-    - name: Print Ngrok VNC Address
+    - name: Wait for VNC to be ready
       run: |
-        sleep 15
-        curl -s http://localhost:4040/api/tunnels | grep -o 'tcp://[^"]*' || echo "Waiting for ngrok..."
+        echo "Waiting for VNC (port 6080) to be available..."
+        for i in {1..30}; do
+          if nc -z localhost 6080; then
+            echo "VNC port is open!"
+            break
+          fi
+          echo "Still waiting..."
+          sleep 2
+        done
 
-    - name: Keep job alive (infinite loop)
+    - name: Start Ngrok Tunnel for VNC
       run: |
-        echo "Android is running via VNC. Job will stay alive..."
-        tail -f /dev/null
+        nohup ngrok http 6080 > ngrok.log 2>&1 &
+        sleep 10
+        curl -s http://127.0.0.1:4040/api/tunnels > tunnels.json || true
+        cat tunnels.json
+
+    - name: Show Ngrok Public URL
+      run: |
+        echo "Ngrok public VNC URL:"
+        curl -s http://127.0.0.1:4040/api/tunnels | grep -o 'https://[^"]*'
+
+    - name: Keep GitHub Actions job alive
+      run: tail -f /dev/null
