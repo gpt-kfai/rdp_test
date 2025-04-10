@@ -1,58 +1,55 @@
-name: Android VNC Remote - kangwifi
+name: kangwifi-android13
 
 on: [push, workflow_dispatch]
 
 jobs:
   android-vnc:
     runs-on: ubuntu-latest
-    timeout-minutes: 360
+    name: Start Android 13 with VNC Access
 
     steps:
-    - name: Setup dependencies
+    - name: Install dependencies
       run: |
-        sudo apt update
-        sudo apt install -y qemu-system-x86 unzip wget curl xz-utils net-tools
+        sudo apt-get update
+        sudo apt-get install -y qemu-system-x86 unzip wget curl
 
-    - name: Download Android x86 ISO
+    - name: Download Android x86 ISO (Android 13 unofficial)
       run: |
-        wget -O android.iso https://github.com/chefstuff/android-vnc/releases/download/9.0-r2/android-x86_64-9.0-r2.iso
+        mkdir iso && cd iso
+        wget -O android13.iso https://mirror.opensuse.org/repositories/home:/deadpoint:/android-x86_64/iso/android-x86_64-13.1-r1.iso
 
-    - name: Download Ngrok
+    - name: Create VNC password
       run: |
-        curl -s https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-stable-linux-amd64.zip -o ngrok.zip
-        unzip ngrok.zip
-        chmod +x ngrok
+        mkdir -p ~/.vnc
+        echo "Wifi.id123" | vncpasswd -f > ~/.vnc/passwd
+        chmod 600 ~/.vnc/passwd
 
-    - name: Auth Ngrok
-      run: ./ngrok authtoken ${{ secrets.NGROK_AUTH_TOKEN }}
-
-    - name: Start Ngrok VNC Tunnel
+    - name: Start Android 13 with QEMU + VNC
       run: |
-        nohup ./ngrok tcp 5900 > ngrok.log &
-        sleep 3
-        curl -s localhost:4040/api/tunnels > tunnels.json || true
-
-    - name: Print Ngrok VNC Address
-      run: |
-        sleep 10
-        curl -s http://localhost:4040/api/tunnels | jq -r '.tunnels[] | select(.proto=="tcp") | "VNC: \(.public_url)"'
-
-    - name: Run Android QEMU VM
-      run: |
-        wget -O android.qcow2 https://github.com/chefstuff/android-vnc/releases/download/9.0-r2/android_disk.qcow2
-        qemu-system-x86_64 \
+        nohup qemu-system-x86_64 \
+          -enable-kvm \
           -m 2048 \
           -smp 2 \
-          -machine accel=tcg \
-          -name kangwifi \
-          -net nic -net user \
-          -device virtio-tablet-pci \
-          -vnc :0 \
-          -cdrom android.iso \
-          -drive file=android.qcow2,format=qcow2 \
+          -cpu host \
+          -vga virtio \
+          -device virtio-tablet \
           -boot d \
-          -enable-kvm || true
+          -cdrom iso/android13.iso \
+          -net nic -net user \
+          -name kangwifi-android13 \
+          -display vnc=:1 \
+          -no-reboot \
+          -usbdevice tablet > qemu.log 2>&1 &
 
-    - name: Keep Alive
+    - name: Download and Start Ngrok
       run: |
-        while true; do sleep 300; done
+        wget https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-stable-linux-amd64.zip
+        unzip ngrok-stable-linux-amd64.zip
+        chmod +x ngrok
+        ./ngrok authtoken ${{ secrets.NGROK_AUTH_TOKEN }}
+        nohup ./ngrok tcp 5901 > ngrok.log 2>&1 &
+
+    - name: Wait & Show Ngrok VNC Address
+      run: |
+        sleep 20
+        curl -s http://127.0.0.1:4040/api/tunnels | grep -o 'tcp://[^"]*' || echo "Ngrok tunnel not found"
