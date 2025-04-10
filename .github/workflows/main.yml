@@ -10,6 +10,11 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v3
 
+    - name: Install dependencies
+      run: |
+        sudo apt update
+        sudo apt install -y tmux curl jq
+
     - name: Install Ngrok from official repo
       run: |
         curl -sSL https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
@@ -32,20 +37,22 @@ jobs:
           --name kangwifi-android \
           butomo1989/docker-android-x86-9.0
 
-    - name: Wait for container startup
-      run: sleep 20
-
-    - name: Start Ngrok Tunnel
+    - name: Start Ngrok in tmux session
       run: |
-        nohup ngrok http 6080 > ngrok.log 2>&1 &
+        tmux new-session -d -s ngrok 'ngrok http 6080'
+        sleep 10
+
+    - name: Get Ngrok Public URL
+      run: |
         echo "Waiting for ngrok to initialize..."
-        for i in {1..30}; do
-          NGROK_URL=$(curl -s http://127.0.0.1:4040/api/tunnels | grep -o 'https://[0-9a-z]*\.ngrok-free\.app')
-          if [[ -n "$NGROK_URL" ]]; then
-            echo "VNC Tunnel: $NGROK_URL"
+        for i in {1..20}; do
+          NGROK_URL=$(curl -s http://127.0.0.1:4040/api/tunnels | jq -r '.tunnels[0].public_url')
+          if [[ "$NGROK_URL" == https* ]]; then
+            echo "Ngrok VNC URL: $NGROK_URL"
+            echo "::set-output name=vnc_url::$NGROK_URL"
             break
           fi
-          echo "Waiting..."
+          echo "Still waiting for ngrok..."
           sleep 2
         done
 
