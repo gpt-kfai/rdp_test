@@ -46,8 +46,7 @@ jobs:
             -display vnc=:0 \
             -no-reboot \
             -rtc base=utc \
-            -serial mon:stdio \
-            -no-audio
+            -serial mon:stdio 
 
       - name: Keep Runner Alive
         run: |
