@@ -3,49 +3,50 @@ name: kangwifi-android-vnc
 on: [workflow_dispatch]
 
 jobs:
-  run-android:
+  android:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout Repo
+    - name: Checkout
       uses: actions/checkout@v3
 
-    - name: Install dependencies & Ngrok
+    - name: Install Ngrok from official repo
       run: |
-        sudo apt-get update
-        sudo apt-get install -y unzip curl
-        wget -q https://bin.equinox.io/c/4VmDzA7iaHb/ngrok-stable-linux-amd64.zip
-        unzip ngrok-stable-linux-amd64.zip
-        mv ngrok /usr/local/bin/ngrok
-        ngrok config add-authtoken ${{ secrets.NGROK_AUTH_TOKEN }}
+        curl -sSL https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
+        echo "deb https://ngrok-agent.s3.amazonaws.com buster main" | sudo tee /etc/apt/sources.list.d/ngrok.list
+        sudo apt update
+        sudo apt install -y ngrok
 
-    - name: Pull Docker Android Image
+    - name: Auth Ngrok
+      run: ngrok config add-authtoken ${{ secrets.NGROK_AUTH_TOKEN }}
+
+    - name: Pull Docker Android
       run: docker pull butomo1989/docker-android-x86-9.0
 
-    - name: Run Android Docker Container
+    - name: Run Android Container
       run: |
         docker run --privileged -d \
-          -e DEVICE="Realme GT Master Edition" \
+          -e DEVICE="Realme GT Master" \
           -e WEB_VNC=true \
           -p 6080:6080 \
           --name kangwifi-android \
           butomo1989/docker-android-x86-9.0
 
-    - name: Start Ngrok Tunnel (Expose VNC)
-      run: |
-        ngrok tcp 6080 > ngrok.log &
-        sleep 10
+    - name: Wait for container startup
+      run: sleep 20
 
-    - name: Display Ngrok VNC URL
+    - name: Start Ngrok Tunnel
       run: |
-        for i in {1..20}; do
-          ADDR=$(curl -s http://127.0.0.1:4040/api/tunnels | grep -o 'tcp://[^"]*')
-          if [[ -n "$ADDR" ]]; then
-            echo "VNC Available at: $ADDR"
+        nohup ngrok http 6080 > ngrok.log 2>&1 &
+        echo "Waiting for ngrok to initialize..."
+        for i in {1..30}; do
+          NGROK_URL=$(curl -s http://127.0.0.1:4040/api/tunnels | grep -o 'https://[0-9a-z]*\.ngrok-free\.app')
+          if [[ -n "$NGROK_URL" ]]; then
+            echo "VNC Tunnel: $NGROK_URL"
             break
           fi
           echo "Waiting..."
-          sleep 3
+          sleep 2
         done
 
     - name: Keep job alive
