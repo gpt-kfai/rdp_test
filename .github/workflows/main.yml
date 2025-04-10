@@ -39,7 +39,6 @@ jobs:
             -m 2048 \
             -vga std \
             -smp 2 \
-            -enable-kvm \
             -cdrom iso/android13.iso \
             -boot d \
             -net nic \
