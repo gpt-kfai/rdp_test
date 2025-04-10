@@ -44,7 +44,10 @@ jobs:
             -net nic \
             -net user \
             -display vnc=:0 \
-            -no-reboot
+            -no-reboot \
+            -rtc base=utc \
+            -serial mon:stdio \
+            -no-audio
 
       - name: Keep Runner Alive
         run: |
