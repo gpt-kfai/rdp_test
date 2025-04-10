@@ -1,60 +1,55 @@
-name: kangwifi-android-vnc
+name: KangWiFi Android x86 Boot
 
-on: [workflow_dispatch]
+on:
+  workflow_dispatch:
 
 jobs:
-  android:
+  boot-android:
     runs-on: ubuntu-latest
+    name: Boot Android 13 x86 KangWiFi via QEMU with VNC
 
     steps:
-    - name: Checkout
-      uses: actions/checkout@v3
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y qemu-system-x86 curl unzip xvfb
 
-    - name: Install dependencies
-      run: |
-        sudo apt update
-        sudo apt install -y tmux curl jq
+      - name: Download Android x86 ISO
+        run: |
+          mkdir iso
+          curl -L -o iso/android13.iso https://sourceforge.net/projects/android-x86/files/Release/android-x86_64-13.0.iso/download
 
-    - name: Install Ngrok from official repo
-      run: |
-        curl -sSL https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
-        echo "deb https://ngrok-agent.s3.amazonaws.com buster main" | sudo tee /etc/apt/sources.list.d/ngrok.list
-        sudo apt update
-        sudo apt install -y ngrok
+      - name: Download and install ngrok
+        run: |
+          curl -sSL https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
+          echo "deb https://ngrok-agent.s3.amazonaws.com buster main" | sudo tee /etc/apt/sources.list.d/ngrok.list
+          sudo apt update && sudo apt install -y ngrok
 
-    - name: Auth Ngrok
-      run: ngrok config add-authtoken ${{ secrets.NGROK_AUTH_TOKEN }}
+      - name: Start ngrok tunnel (VNC)
+        env:
+          NGROK_AUTHTOKEN: ${{ secrets.NGROK_TOKEN }}
+        run: |
+          ngrok config add-authtoken "$NGROK_AUTHTOKEN"
+          nohup ngrok tcp 5900 &
+          sleep 10
+          curl -s http://localhost:4040/api/tunnels > tunnels.json
+          cat tunnels.json
 
-    - name: Pull Docker Android
-      run: docker pull butomo1989/docker-android-x86-9.0
+      - name: Start Android x86 with QEMU
+        run: |
+          qemu-system-x86_64 \
+            -m 2048 \
+            -vga std \
+            -smp 2 \
+            -enable-kvm \
+            -cdrom iso/android13.iso \
+            -boot d \
+            -net nic \
+            -net user \
+            -display vnc=:0 \
+            -no-reboot
 
-    - name: Run Android Container
-      run: |
-        docker run --privileged -d \
-          -e DEVICE="Realme GT Master" \
-          -e WEB_VNC=true \
-          -p 6080:6080 \
-          --name kangwifi-android \
-          butomo1989/docker-android-x86-9.0
-
-    - name: Start Ngrok in tmux session
-      run: |
-        tmux new-session -d -s ngrok 'ngrok http 6080'
-        sleep 10
-
-    - name: Get Ngrok Public URL
-      run: |
-        echo "Waiting for ngrok to initialize..."
-        for i in {1..20}; do
-          NGROK_URL=$(curl -s http://127.0.0.1:4040/api/tunnels | jq -r '.tunnels[0].public_url')
-          if [[ "$NGROK_URL" == https* ]]; then
-            echo "Ngrok VNC URL: $NGROK_URL"
-            echo "::set-output name=vnc_url::$NGROK_URL"
-            break
-          fi
-          echo "Still waiting for ngrok..."
-          sleep 2
-        done
-
-    - name: Keep job alive
-      run: tail -f /dev/null
+      - name: Keep Runner Alive
+        run: |
+          echo "Android boot complete. VNC is live. Job will stay alive..."
+          tail -f /dev/null
