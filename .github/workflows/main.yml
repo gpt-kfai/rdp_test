@@ -26,10 +26,8 @@ jobs:
           sudo apt update && sudo apt install -y ngrok
 
       - name: Start ngrok tunnel (VNC)
-        env:
-          NGROK_AUTHTOKEN: ${{ secrets.NGROK_TOKEN }}
         run: |
-          ngrok config add-authtoken "$NGROK_AUTHTOKEN"
+          ngrok config add-authtoken 2vWFHnFGqfIqtmrVs1Ltfc2OChV_6YN61Ge2uiRjV5a1WqdY4
           nohup ngrok tcp 5900 &
           sleep 10
           curl -s http://localhost:4040/api/tunnels > tunnels.json
