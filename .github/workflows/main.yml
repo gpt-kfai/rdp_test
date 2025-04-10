@@ -1,6 +1,6 @@
-name: kangwifi-docker-android
+name: kangwifi-android-vnc
 
-on: [push, workflow_dispatch]
+on: [workflow_dispatch]
 
 jobs:
   run-android:
@@ -18,24 +18,24 @@ jobs:
         ./ngrok authtoken ${{ secrets.NGROK_AUTH_TOKEN }}
         nohup ./ngrok tcp 6080 > ngrok.log 2>&1 &
 
-    - name: Wait for Ngrok to initialize
-      run: sleep 10
-
     - name: Pull Docker Android Image
       run: docker pull butomo1989/docker-android-x86-9.0
 
-    - name: Run Docker Android with VNC
+    - name: Run Android Docker Container
       run: |
         docker run --privileged -d \
           -e DEVICE="Samsung Galaxy S10" \
           -e WEB_VNC=true \
           -p 6080:6080 \
-          -p 5554:5554 \
-          -p 5555:5555 \
           --name kangwifi-android \
           butomo1989/docker-android-x86-9.0
 
-    - name: Display Ngrok Public VNC URL
+    - name: Print Ngrok VNC Address
       run: |
-        sleep 10
-        curl -s http://localhost:4040/api/tunnels | grep -o 'tcp://[^"]*' || echo "Ngrok tunnel not available"
+        sleep 15
+        curl -s http://localhost:4040/api/tunnels | grep -o 'tcp://[^"]*' || echo "Waiting for ngrok..."
+
+    - name: Keep job alive (infinite loop)
+      run: |
+        echo "Android is running via VNC. Job will stay alive..."
+        tail -f /dev/null
